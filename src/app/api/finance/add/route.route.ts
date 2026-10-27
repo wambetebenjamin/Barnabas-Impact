@@ -1,0 +1,4 @@
+import { z } from 'zod'
+import { auth } from '@/lib/auth'; import { kv } from '@vercel/kv'; import { json } from '@/lib/security'
+const schema = z.object({ date: z.string(), type: z.enum(['In','Out']), category: z.string().min(2), amount: z.coerce.number().positive(), project: z.string().max(120), notes: z.string().max(2000).optional() })
+export async function POST(request: Request) { const s = await auth(); if (!s?.user) return json({ error: 'Sign in required.' }, 401); const p = schema.safeParse(await request.json().catch(() => null)); if (!p.success) return json({ error: 'Invalid finance entry.' }, 400); const orgId = (s.user as typeof s.user & { orgId?: string }).orgId || s.user.email || 'unknown'; await kv.lpush(`org:${orgId}:finance`, { ...p.data, orgId, createdAt: new Date().toISOString() }); return json({ ok: true }, 201) }
